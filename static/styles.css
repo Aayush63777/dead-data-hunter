@@ -1,0 +1,17 @@
+/* simple clean styles */
+body { font-family: Inter, Roboto, Arial, sans-serif; margin:0; color:#222; background:#f7f7fb; }
+.container { width:90%; max-width:980px; margin:0 auto; padding:20px; }
+.topbar { background:#0b5ed7; color:white; padding:18px 0; margin-bottom:18px; }
+.topbar h1 { margin:0; font-size:22px; }
+.topbar a { color:inherit; text-decoration:none; }
+.subtitle { margin:4px 0 0; opacity:0.9; }
+
+.panel { background:white; padding:16px; margin-bottom:14px; border-radius:8px; box-shadow:0 1px 4px rgba(20,20,30,0.03); }
+input[type=text] { padding:10px; width:70%; border:1px solid #ddd; border-radius:6px; margin-right:8px; }
+button { padding:10px 14px; border:0; background:#0b5ed7; color:white; border-radius:6px; cursor:pointer; }
+button:hover { opacity:0.95; }
+
+.footer { text-align:center; padding:12px 0; margin-top:18px; color:#666; }
+#recentList ul { list-style:none; padding:0; }
+#recentList li { padding:6px 0; border-bottom:1px dashed #eee; }
+a.smalllink { font-size:13px; color:#0b5ed7; text-decoration:none; }

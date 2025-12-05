@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>Scan a website</h2>
+  <form id="scanForm" method="post" action="/scan">
+    <input type="text" name="url" id="urlInput" placeholder="https://example.com" required>
+    <button type="submit">Scan</button>
+  </form>
+  <p>Or use the API: POST /scan { "url": "https://example.com" }</p>
+</section>
+
+<section class="panel">
+  <h2>Recent Scans</h2>
+  <div id="recentList">Loading...</div>
+</section>
+
+<section class="panel">
+  <h2>Overview</h2>
+  <canvas id="overviewChart" width="600" height="200"></canvas>
+</section>
+{% endblock %}
+
+{% block page_scripts %}
+<script>
+  // on page load, dashboard.js will fetch /reports and render
+  window.addEventListener('DOMContentLoaded', () => {
+    dashboardLoad();
+  });
+</script>
+{% endblock %}

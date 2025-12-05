@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block content %}
+<section class="panel">
+  <h2>Report for: {{ website }}</h2>
+  {% if not report %}
+    <p>No scan found for this website. Use the form on the <a href="/">home</a> to run a scan.</p>
+  {% else %}
+    <p><strong>Title:</strong> {{ report.title }}</p>
+    <p><strong>Scanned on:</strong> {{ report.scanned_on }}</p>
+
+    <h3>Outdated Dates</h3>
+    {% if report.outdated_dates %}
+      <ul>
+      {% for y in report.outdated_dates %}
+        <li>{{ y }}</li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>None detected.</p>
+    {% endif %}
+
+    <h3>Broken Links (sample)</h3>
+    {% if report.broken_links %}
+      <ul>
+      {% for b in report.broken_links %}
+        <li>
+          <a href="{{ b.url }}" target="_blank">{{ b.url }}</a>
+          — status: {{ b.status }}
+          {% if b.error %} — error: {{ b.error }} {% endif %}
+        </li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>None detected (in checked subset).</p>
+    {% endif %}
+
+    <h3>Invalid Contacts</h3>
+    {% if report.invalid_contacts %}
+      <ul>
+      {% for p in report.invalid_contacts %}
+        <li>{{ p.raw }} (digits: {{ p.digits }})</li>
+      {% endfor %}
+      </ul>
+    {% else %}
+      <p>None detected.</p>
+    {% endif %}
+
+    <h3>Resources (pdf/doc)</h3>
+    {% if report.resources %}
+      <ul>
+      {% for r in report.resources %}
+        <li><a href="{{ r }}" target="_blank">{{ r }}</a></li>
+      {% endfor %}
+      </ul>
+    {% endif %}
+  {% endif %}
+</section>
+{% endblock %}
