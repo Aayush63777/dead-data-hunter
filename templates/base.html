@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Dead Data Hunter</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="container">
+      <h1><a href="/">Dead Data Hunter</a></h1>
+      <p class="subtitle">Detect outdated dates, broken links & invalid contacts</p>
+    </div>
+  </header>
+
+  <main class="container">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <small>Built with ❤️ — Python · BeautifulSoup · Flask · MongoDB</small>
+    </div>
+  </footer>
+
+  <script src="{{ url_for('static', filename='chart.js') }}"></script>
+  {% block page_scripts %}{% endblock %}
+</body>
+</html>

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block content %}
+<section id="report-content">
+  <div class="report-header">
+    <h2>Report for: {{ website }}</h2>
+  </div>
+  
+  {% if not report %}
+    <div class="empty-state">
+      <p>No scan found for this website. Use the form on the <a href="/">home</a> to run a scan.</p>
+    </div>
+  {% else %}
+    <!-- Summary Stats -->
+    <div class="summary-stats">
+      <div class="stat-card stat-outdated" data-value="{{ report.outdated_dates|length }}">
+        <div class="stat-icon">📅</div>
+        <div class="stat-label">Outdated Items</div>
+        <div class="stat-value">{{ report.outdated_dates|length }}</div>
+      </div>
+      <div class="stat-card stat-broken" data-value="{{ report.broken_links|length }}">
+        <div class="stat-icon">🔗</div>
+        <div class="stat-label">Broken Links</div>
+        <div class="stat-value">{{ report.broken_links|length }}</div>
+      </div>
+      <div class="stat-card stat-contacts" data-value="{{ report.invalid_contacts|length }}">
+        <div class="stat-icon">☎️</div>
+        <div class="stat-label">Invalid Contacts</div>
+        <div class="stat-value">{{ report.invalid_contacts|length }}</div>
+      </div>
+      <div class="stat-card stat-resources" data-value="{{ report.resources|length }}">
+        <div class="stat-icon">📦</div>
+        <div class="stat-label">Resources Found</div>
+        <div class="stat-value">{{ report.resources|length }}</div>
+      </div>
+    </div>
+    
+    <!-- Report Metadata -->
+    <div class="report-meta">
+      <div class="meta-item">
+        <span class="meta-label">Page Title:</span>
+        <span class="meta-value">{{ report.title or 'N/A' }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Scanned on:</span>
+        <span class="meta-value">{{ report.scanned_on }}</span>
+      </div>
+      {% if report.summary %}
+      <div class="meta-item">
+        <span class="meta-label">Issue Summary:</span>
+        <span class="meta-value">{{ report.summary.severity|upper }} · {{ report.summary.total_issues }} total issues</span>
+      </div>
+      {% endif %}
+    </div>
+    
+    <!-- Content Sections -->
+    <div class="report-sections">
+      <!-- Outdated Dates -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>📅 Outdated Dates</h3>
+          <span class="badge badge-outdated">{{ report.outdated_dates|length }}</span>
+        </div>
+        <div class="section-content">
+          {% if report.outdated_dates %}
+            <div class="items-list">
+            {% for y in report.outdated_dates %}
+              <div class="item-chip">{{ y }}</div>
+            {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-message">✓ None detected</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Broken Links -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>🔗 Broken Links</h3>
+          <span class="badge badge-broken">{{ report.broken_links|length }}</span>
+        </div>
+        <div class="section-content">
+          {% if report.broken_links %}
+            <div class="items-table">
+            {% for b in report.broken_links %}
+              <div class="item-row">
+                <div class="item-url"><a href="{{ b.url }}" target="_blank" title="{{ b.url }}">{{ b.url[:60] }}{{ '...' if b.url|length > 60 else '' }}</a></div>
+                <div class="item-status status-{{ b.status }}" title="HTTP {{ b.status }}">{{ b.status }}</div>
+                {% if b.error %}<div class="item-error">{{ b.error[:30] }}</div>{% endif %}
+              </div>
+            {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-message">✓ None detected (in checked subset)</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Invalid Contacts -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>☎️ Invalid Contacts</h3>
+          <span class="badge badge-contacts">{{ report.invalid_contacts|length }}</span>
+        </div>
+        <div class="section-content">
+          {% if report.invalid_contacts %}
+            <div class="items-grid">
+            {% for p in report.invalid_contacts %}
+              <div class="item-box">
+                <div class="item-raw">{{ p.raw }}</div>
+                <div class="item-digits">{{ p.digits }}</div>
+              </div>
+            {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-message">✓ None detected</p>
+          {% endif %}
+        </div>
+      </div>
+      
+      <!-- Resources -->
+      <div class="section-card">
+        <div class="section-header">
+          <h3>📦 Resources</h3>
+          <span class="badge badge-resources">{{ report.resources|length }}</span>
+        </div>
+        <div class="section-content">
+          {% if report.resources %}
+            <div class="resources-list">
+            {% for r in report.resources %}
+              <div class="resource-item">
+                <span class="resource-icon">📄</span>
+                <a href="{{ r }}" target="_blank" title="{{ r }}">{{ r.split('/')[-1][:50] }}</a>
+              </div>
+            {% endfor %}
+            </div>
+          {% else %}
+            <p class="empty-message">✓ None detected</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Back Button -->
+    <div class="report-footer">
+      <a href="/" class="btn-back">← Back to Dashboard</a>
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
