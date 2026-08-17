@@ -1,9 +1,19 @@
 {% extends "base.html" %}
+
 {% block content %}
+
 <section class="panel">
   <h2>Scan a website</h2>
+
   <form id="scanForm">
-    <input type="text" name="url" id="urlInput" placeholder="https://example.com" required>
+    <input
+      type="text"
+      name="url"
+      id="urlInput"
+      placeholder="https://example.com"
+      required
+    >
+
     <button type="submit">Scan</button>
   </form>
 
@@ -19,65 +29,100 @@
 
     <label>
       Max pages
-      <input type="number" id="scanPages" min="1" max="25" value="8">
+      <input
+        type="number"
+        id="scanPages"
+        min="1"
+        max="25"
+        value="8"
+      >
     </label>
 
     <label>
       Max links
-      <input type="number" id="scanLinks" min="10" max="100" value="50">
+      <input
+        type="number"
+        id="scanLinks"
+        min="10"
+        max="100"
+        value="50"
+      >
     </label>
   </div>
 
   <div id="scanStatus"></div>
-  <p>Or use the API: POST /scan { "url": "https://example.com" }</p>
+
+  <p>
+    Or use the API:
+    POST /scan
+    { "url": "https://example.com" }
+  </p>
 </section>
+
 
 <section class="panel">
   <h2>Recent Scans</h2>
   <div id="recentList">Loading...</div>
 </section>
 
+
 <section class="panel">
   <h2>Analytics Summary</h2>
-  <div class="severity-legend" aria-label="Severity legend">
+
+  <div
+    class="severity-legend"
+    aria-label="Severity legend"
+  >
     <span class="legend-item low">Low</span>
     <span class="legend-item medium">Medium</span>
     <span class="legend-item high">High</span>
     <span class="legend-item critical">Critical</span>
   </div>
+
   <div id="analyticsStats">Loading...</div>
 </section>
 
+
 <section class="panel">
   <h2>Scan Metrics Trend</h2>
-  <canvas id="overviewChart" width="600" height="250"></canvas>
+
+  <canvas
+    id="overviewChart"
+    width="600"
+    height="250"
+  ></canvas>
 </section>
+
 {% endblock %}
 
+
 {% block page_scripts %}
+
 <script>
-  // on page load, dashboard.js will fetch /reports and render
+  // Load dashboard data when the page is ready.
   window.addEventListener('DOMContentLoaded', () => {
     dashboardLoad();
-    
-    // Handle form submission
+
     const scanForm = document.getElementById('scanForm');
+
     scanForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
-      const url = document.getElementById('urlInput').value;
+
+      const url = document.getElementById('urlInput').value.trim();
       const depth = document.getElementById('scanDepth').value;
       const maxPages = document.getElementById('scanPages').value;
       const maxLinks = document.getElementById('scanLinks').value;
       const statusDiv = document.getElementById('scanStatus');
-      
+
       if (!url) {
-        statusDiv.innerHTML = '<p style="color: red;">Please enter a URL</p>';
+        statusDiv.innerHTML =
+          '<p style="color: red;">Please enter a URL</p>';
         return;
       }
-      
-      statusDiv.innerHTML = '<p style="color: blue;">Scanning...</p>';
-      
+
+      statusDiv.innerHTML =
+        '<p style="color: blue;">Scanning...</p>';
+
       try {
         const response = await fetch('/scan', {
           method: 'POST',
@@ -91,25 +136,33 @@
             max_links_to_check: Number(maxLinks)
           })
         });
-        
+
         if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          throw new Error(
+            `HTTP ${response.status}: ${response.statusText}`
+          );
         }
-        
-        const result = await response.json();
-        statusDiv.innerHTML = '<p style="color: green;">✓ Scan complete! Reloading...</p>';
-        
-        // Reload dashboard
+
+        await response.json();
+
+        statusDiv.innerHTML =
+          '<p style="color: green;">✓ Scan complete! Reloading...</p>';
+
         setTimeout(() => {
           dashboardLoad();
+
           document.getElementById('urlInput').value = '';
           statusDiv.innerHTML = '';
         }, 1000);
+
       } catch (error) {
-        statusDiv.innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        statusDiv.innerHTML =
+          `<p style="color: red;">Error: ${error.message}</p>`;
+
         console.error('Scan error:', error);
       }
     });
   });
 </script>
+
 {% endblock %}

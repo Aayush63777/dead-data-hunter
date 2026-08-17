@@ -46,6 +46,7 @@ def index():
 # --------------------------------------------------
 # 🚀 /scan API — MAIN FIX APPLIED HERE
 # --------------------------------------------------
+
 @app.route("/scan", methods=["POST"])
 def scan_api():
     data = request.get_json(silent=True) or {}
@@ -69,7 +70,11 @@ def scan_api():
         max_pages = 8
 
     try:
-        max_links_to_check = int(data.get("max_links_to_check") or request.form.get("max_links_to_check") or 50)
+        max_links_to_check = int(
+            data.get("max_links_to_check")
+            or request.form.get("max_links_to_check")
+            or 50
+        )
     except (TypeError, ValueError):
         max_links_to_check = 50
 
@@ -78,26 +83,15 @@ def scan_api():
     max_links_to_check = max(10, min(max_links_to_check, 100))
 
     # Scrape website
-    result = scrape_website(url, max_links_to_check=max_links_to_check, max_depth=depth, max_pages=max_pages)
+    result = scrape_website(
+        url,
+        max_links_to_check=max_links_to_check,
+        max_depth=depth,
+        max_pages=max_pages,
+    )
+
     result["scanned_on"] = datetime.now(UTC).isoformat()
     result["website"] = url
-
-    if "summary" not in result:
-        result["summary"] = {
-            "counts": {
-                "outdated_dates": len(result.get("outdated_dates", [])),
-                "broken_links": len(result.get("broken_links", [])),
-                "invalid_contacts": len(result.get("invalid_contacts", [])),
-                "resources": len(result.get("resources", [])),
-            },
-            "total_issues": sum([
-                len(result.get("outdated_dates", [])),
-                len(result.get("broken_links", [])),
-                len(result.get("invalid_contacts", [])),
-                len(result.get("resources", [])),
-            ]),
-            "severity": "low",
-        }
 
     # Save to DB
     try:
