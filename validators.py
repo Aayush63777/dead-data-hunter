@@ -13,60 +13,33 @@ HEADERS = {
 
 def find_outdated_dates(text, year_threshold=4):
     """
-    Return a list of years that look outdated.
-
-    Only dates that explicitly indicate update/modification/revision
-    are considered. Copyright years and copyright ranges are ignored.
+    Return years that are explicitly associated with update/modification/revision dates.
+    Copyright years, ranges, and unrelated historical years are ignored.
     """
     now_year = datetime.utcnow().year
     years = set()
 
     patterns = [
-        r"last\s+updated[:\s]+(?:on\s+)?([0-9]{4})",
-        r"modified[:\s]+(?:on\s+)?([0-9]{4})",
-        r"last\s+revised[:\s]+(?:on\s+)?([0-9]{4})",
-        r"last\s+changed[:\s]+(?:on\s+)?([0-9]{4})",
-        r"updated\s+on\s+(?:january|february|march|april|may|june|july|august|september|october|november|december)?\s*\d{1,2},?\s+([0-9]{4})",
-        r"(?:january|february|march|april|may|june|july|august|september|october|november|december)\s+([0-9]{4})",
-    ]
+    r"\blast\s+updated\b[:\s]*(?:on\s+)?(?:[A-Za-z]+\s+\d{1,2},?\s+)?([12]\d{3})\b",
+    r"\bupdated\s+on\b[:\s]*(?:[A-Za-z]+\s+\d{1,2},?\s+)?([12]\d{3})\b",
+    r"\bmodified\b[:\s]*(?:on\s+)?(?:[A-Za-z]+\s+\d{1,2},?\s+)?([12]\d{3})\b",
+    r"\blast\s+revised\b[:\s]*(?:on\s+)?(?:[A-Za-z]+\s+\d{1,2},?\s+)?([12]\d{3})\b",
+    r"\brevised\b[:\s]*(?:on\s+)?(?:[A-Za-z]+\s+\d{1,2},?\s+)?([12]\d{3})\b",
+    r"\blast\s+changed\b[:\s]*(?:on\s+)?(?:[A-Za-z]+\s+\d{1,2},?\s+)?([12]\d{3})\b",
+]
 
     for pattern in patterns:
         for match in re.findall(pattern, text, flags=re.I):
-            years.add(int(match))
+            year = int(match)
 
-    # Ignore copyright years and ranges such as:
-    # © 2006-2024
-    text_lines = text.split("\n")
-    filtered_years = set()
+            if 1900 <= year <= now_year:
+                years.add(year)
 
-    for year in years:
-        copyright_pattern = (
-            r"[©(]\s*([0-9]{4})\s*[-–]\s*([0-9]{4}|\w*)"
-        )
-
-        is_copyright = False
-
-        for line in text_lines:
-            if str(year) in line and re.search(
-                copyright_pattern,
-                line,
-                flags=re.I,
-            ):
-                is_copyright = True
-                break
-
-        if not is_copyright:
-            filtered_years.add(year)
-
-    years = filtered_years
-
-    outdated = [
+    outdated = sorted(
         year
         for year in years
-        if (now_year - year) >= year_threshold
-    ]
-
-    outdated.sort()
+        if now_year - year >= year_threshold
+    )
 
     return outdated
 
