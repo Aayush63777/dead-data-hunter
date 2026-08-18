@@ -45,15 +45,12 @@ def convert_objectid(data):
 
 APP_PORT = int(
     os.environ.get(
-        "FLASK_PORT",
-        5000,
+        "PORT",
+        os.environ.get("FLASK_PORT", 5000)
     )
 )
 
-APP_HOST = os.environ.get(
-    "FLASK_HOST",
-    "0.0.0.0",
-)
+APP_HOST = os.environ.get("FLASK_HOST", "0.0.0.0")
 
 app = Flask(
     __name__,
