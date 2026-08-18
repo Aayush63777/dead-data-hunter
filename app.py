@@ -1,71 +1,136 @@
-import os
 import json
-from flask import Flask, request, jsonify, render_template, redirect, url_for
-from datetime import datetime, UTC
-from scraper import scrape_website
-from database import reports, ensure_indexes
+import os
+from datetime import UTC, datetime
 from urllib.parse import quote, unquote
-from pymongo import MongoClient
+
 from bson import ObjectId
+from flask import (
+    Flask,
+    jsonify,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
+
+from database import ensure_indexes, reports
+from scraper import scrape_website
+
 
 # --------------------------------------------------
-# 🔥 FIX — Helper to convert ObjectId → str
+# Helper: Convert MongoDB ObjectId to string
 # --------------------------------------------------
+
 def convert_objectid(data):
-    if isinstance(data, list):
-        return [convert_objectid(item) for item in data]
-    if isinstance(data, dict):
-        return {k: convert_objectid(v) for k, v in data.items()}
+    """Recursively convert MongoDB ObjectId values to strings."""
+
     if isinstance(data, ObjectId):
         return str(data)
+
+    if isinstance(data, list):
+        return [convert_objectid(item) for item in data]
+
+    if isinstance(data, dict):
+        return {
+            key: convert_objectid(value)
+            for key, value in data.items()
+        }
+
     return data
 
 
-# MongoDB client
-client = MongoClient("mongodb://localhost:27017/")
-db = client["dead_data_hunter"]
-# collection = db["reports"]
-collection = db["scan_reports"]
-reports = collection
+# --------------------------------------------------
+# Flask configuration
+# --------------------------------------------------
+
+APP_PORT = int(
+    os.environ.get(
+        "FLASK_PORT",
+        5000,
+    )
+)
+
+APP_HOST = os.environ.get(
+    "FLASK_HOST",
+    "0.0.0.0",
+)
+
+app = Flask(
+    __name__,
+    template_folder="templates",
+    static_folder="static",
+)
 
 
-APP_PORT = int(os.environ.get("FLASK_PORT", 5000))
-APP_HOST = os.environ.get("FLASK_HOST", "0.0.0.0")
+# --------------------------------------------------
+# MongoDB indexes
+# --------------------------------------------------
 
-app = Flask(__name__, template_folder="templates", static_folder="static")
-
-# Ensure indexes exist
 ensure_indexes()
 
-# HOME page
+
+# --------------------------------------------------
+# HOME
+# --------------------------------------------------
+
 @app.route("/")
 def index():
+    """Render the main scanner page."""
+
     return render_template("index.html")
 
 
 # --------------------------------------------------
-# 🚀 /scan API — MAIN FIX APPLIED HERE
+# SCAN API
 # --------------------------------------------------
 
 @app.route("/scan", methods=["POST"])
 def scan_api():
+    """Scan a website and save the generated report."""
+
     data = request.get_json(silent=True) or {}
-    url = data.get("url") or request.form.get("url")
+
+    url = (
+        data.get("url")
+        or request.form.get("url")
+        or ""
+    ).strip()
 
     if not url:
-        return jsonify({"error": "URL missing"}), 400
+        return jsonify(
+            {
+                "error": "URL missing",
+            }
+        ), 400
 
-    # Auto prepend http:// if missing
-    if not url.startswith("http://") and not url.startswith("https://"):
+    # Add HTTP scheme when the user enters only a domain.
+    if not url.startswith(
+        (
+            "http://",
+            "https://",
+        )
+    ):
         url = "http://" + url
 
+    # --------------------------------------------------
+    # Read crawl settings
+    # --------------------------------------------------
+
     try:
-        depth = int(data.get("depth") or request.form.get("depth") or 2)
+        depth = int(
+            data.get("depth")
+            or request.form.get("depth")
+            or 2
+        )
     except (TypeError, ValueError):
         depth = 2
 
     try:
-        max_pages = int(data.get("max_pages") or request.form.get("max_pages") or 8)
+        max_pages = int(
+            data.get("max_pages")
+            or request.form.get("max_pages")
+            or 8
+        )
     except (TypeError, ValueError):
         max_pages = 8
 
@@ -78,93 +143,255 @@ def scan_api():
     except (TypeError, ValueError):
         max_links_to_check = 50
 
-    depth = max(1, min(depth, 3))
-    max_pages = max(1, min(max_pages, 25))
-    max_links_to_check = max(10, min(max_links_to_check, 100))
-
-    # Scrape website
-    result = scrape_website(
-        url,
-        max_links_to_check=max_links_to_check,
-        max_depth=depth,
-        max_pages=max_pages,
+    # Keep crawler settings within safe limits.
+    depth = max(
+        1,
+        min(depth, 3),
     )
 
-    result["scanned_on"] = datetime.now(UTC).isoformat()
+    max_pages = max(
+        1,
+        min(max_pages, 25),
+    )
+
+    max_links_to_check = max(
+        10,
+        min(max_links_to_check, 100),
+    )
+
+    # --------------------------------------------------
+    # Run scanner
+    # --------------------------------------------------
+
+    try:
+        result = scrape_website(
+            url,
+            max_links_to_check=max_links_to_check,
+            max_depth=depth,
+            max_pages=max_pages,
+        )
+
+    except Exception as exc:
+        return jsonify(
+            {
+                "error": "Scan failed",
+                "message": str(exc),
+            }
+        ), 500
+
+    # Add scan metadata.
+    result["scanned_on"] = datetime.now(
+        UTC
+    ).isoformat()
+
     result["website"] = url
 
-    # Save to DB
+    # --------------------------------------------------
+    # Save report to MongoDB
+    # --------------------------------------------------
+
     try:
         reports.insert_one(result)
-    except Exception as e:
-        result["_db_error"] = str(e)
 
-    # Save local JSON copy
+    except Exception as exc:
+        # Scanner result is still returned even if
+        # MongoDB is temporarily unavailable.
+        result["_db_error"] = str(exc)
+
+    # --------------------------------------------------
+    # Save local JSON report
+    # --------------------------------------------------
+
     try:
-        with open("report.json", "w", encoding="utf-8") as f:
-            json.dump(result, f, indent=2, default=str, ensure_ascii=False)
-    except:
+        with open(
+            "report.json",
+            "w",
+            encoding="utf-8",
+        ) as file:
+            json.dump(
+                result,
+                file,
+                indent=2,
+                default=str,
+                ensure_ascii=False,
+            )
+
+    except OSError:
+        # Local report creation is optional.
         pass
 
-    # If form request → redirect to report page
+    # --------------------------------------------------
+    # Form submission
+    # --------------------------------------------------
+
     if request.form.get("url"):
-        return redirect(url_for("report_detail", url=quote(url, safe="")))
+        return redirect(
+            url_for(
+                "report_detail",
+                url=quote(
+                    url,
+                    safe="",
+                ),
+            )
+        )
 
-    # API JSON response
-    return jsonify({
-        "message": "Scan Complete",
-        "data": convert_objectid(result)
-    })
+    # --------------------------------------------------
+    # JSON API response
+    # --------------------------------------------------
+
+    return jsonify(
+        {
+            "message": "Scan Complete",
+            "data": convert_objectid(result),
+        }
+    )
 
 
 # --------------------------------------------------
-# 📌 /reports API — FIXED WITH convert_objectid
+# REPORTS API
 # --------------------------------------------------
+
 @app.route("/reports")
 def get_reports():
+    """Return recent scan reports."""
+
     try:
-        limit = int(request.args.get("limit", 50))
-    except:
+        limit = int(
+            request.args.get(
+                "limit",
+                50,
+            )
+        )
+    except (TypeError, ValueError):
         limit = 50
 
-    docs = list(reports.find().sort("scanned_on", -1).limit(limit))
-    docs = convert_objectid(docs)
+    # Prevent unreasonable limits.
+    limit = max(
+        1,
+        min(limit, 100),
+    )
 
-    return jsonify(docs)
+    try:
+        docs = list(
+            reports.find()
+            .sort(
+                "scanned_on",
+                -1,
+            )
+            .limit(limit)
+        )
+
+    except Exception as exc:
+        return jsonify(
+            {
+                "error": "Unable to fetch reports",
+                "message": str(exc),
+            }
+        ), 500
+
+    return jsonify(
+        convert_objectid(docs)
+    )
 
 
 # --------------------------------------------------
-# 📌 /history API — FIXED
+# HISTORY API
 # --------------------------------------------------
+
 @app.route("/history/<path:url>")
 def history_page(url):
-    decoded = unquote(url)
-    docs = list(reports.find({"website": decoded}).sort("scanned_on", -1))
-    docs = convert_objectid(docs)
+    """Return scan history for a specific website."""
 
-    return jsonify(docs)
+    decoded_url = unquote(url)
+
+    try:
+        docs = list(
+            reports.find(
+                {
+                    "website": decoded_url,
+                }
+            )
+            .sort(
+                "scanned_on",
+                -1,
+            )
+        )
+
+    except Exception as exc:
+        return jsonify(
+            {
+                "error": "Unable to fetch history",
+                "message": str(exc),
+            }
+        ), 500
+
+    return jsonify(
+        convert_objectid(docs)
+    )
 
 
 # --------------------------------------------------
-# 📌 Report detail HTML page
+# REPORT DETAIL
 # --------------------------------------------------
+
 @app.route("/report")
 def report_detail():
-    url = request.args.get("url")
-    if not url:
-        return "url param required (ex: /report?url=https://example.com)", 400
+    """Render the latest report for a website."""
 
-    doc = reports.find_one({"website": url}, sort=[("scanned_on", -1)])
+    url = request.args.get(
+        "url",
+        "",
+    ).strip()
+
+    if not url:
+        return (
+            "url param required "
+            "(ex: /report?url=https://example.com)",
+            400,
+        )
+
+    try:
+        doc = reports.find_one(
+            {
+                "website": url,
+            },
+            sort=[
+                (
+                    "scanned_on",
+                    -1,
+                )
+            ],
+        )
+
+    except Exception as exc:
+        return (
+            f"Unable to load report: {exc}",
+            500,
+        )
 
     if not doc:
-        return render_template("report_detail.html", report=None, website=url)
+        return render_template(
+            "report_detail.html",
+            report=None,
+            website=url,
+        )
 
     doc = convert_objectid(doc)
-    return render_template("report_detail.html", report=doc, website=url)
+
+    return render_template(
+        "report_detail.html",
+        report=doc,
+        website=url,
+    )
 
 
 # --------------------------------------------------
-# Run server
+# RUN SERVER
 # --------------------------------------------------
+
 if __name__ == "__main__":
-    app.run(host=APP_HOST, port=APP_PORT, debug=True)
+    app.run(
+        host=APP_HOST,
+        port=APP_PORT,
+        debug=False,
+    )
