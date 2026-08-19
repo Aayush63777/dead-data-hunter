@@ -46,11 +46,14 @@ def convert_objectid(data):
 APP_PORT = int(
     os.environ.get(
         "PORT",
-        os.environ.get("FLASK_PORT", 5000)
+        os.environ.get("FLASK_PORT", 5000),
     )
 )
 
-APP_HOST = os.environ.get("FLASK_HOST", "0.0.0.0")
+APP_HOST = os.environ.get(
+    "FLASK_HOST",
+    "0.0.0.0",
+)
 
 app = Flask(
     __name__,
@@ -94,19 +97,12 @@ def scan_api():
     ).strip()
 
     if not url:
-        return jsonify(
-            {
-                "error": "URL missing",
-            }
-        ), 400
+        return jsonify({
+            "error": "URL missing",
+        }), 400
 
-    # Add HTTP scheme when the user enters only a domain.
-    if not url.startswith(
-        (
-            "http://",
-            "https://",
-        )
-    ):
+    # Add HTTP scheme when only a domain is provided.
+    if not url.startswith(("http://", "https://")):
         url = "http://" + url
 
     # --------------------------------------------------
@@ -141,16 +137,8 @@ def scan_api():
         max_links_to_check = 50
 
     # Keep crawler settings within safe limits.
-    depth = max(
-        1,
-        min(depth, 3),
-    )
-
-    max_pages = max(
-        1,
-        min(max_pages, 25),
-    )
-
+    depth = max(1, min(depth, 3))
+    max_pages = max(1, min(max_pages, 25))
     max_links_to_check = max(
         10,
         min(max_links_to_check, 100),
@@ -167,20 +155,14 @@ def scan_api():
             max_depth=depth,
             max_pages=max_pages,
         )
-
     except Exception as exc:
-        return jsonify(
-            {
-                "error": "Scan failed",
-                "message": str(exc),
-            }
-        ), 500
+        return jsonify({
+            "error": "Scan failed",
+            "message": str(exc),
+        }), 500
 
     # Add scan metadata.
-    result["scanned_on"] = datetime.now(
-        UTC
-    ).isoformat()
-
+    result["scanned_on"] = datetime.now(UTC).isoformat()
     result["website"] = url
 
     # --------------------------------------------------
@@ -189,11 +171,11 @@ def scan_api():
 
     try:
         reports.insert_one(result)
-
     except Exception as exc:
-        # Scanner result is still returned even if
-        # MongoDB is temporarily unavailable.
-        result["_db_error"] = str(exc)
+        # Scanner result should still be returned
+        # if MongoDB is temporarily unavailable.
+        result["_db_error"] = "Database unavailable"
+        print("MongoDB insert failed:", exc)
 
     # --------------------------------------------------
     # Save local JSON report
@@ -212,7 +194,6 @@ def scan_api():
                 default=str,
                 ensure_ascii=False,
             )
-
     except OSError:
         # Local report creation is optional.
         pass
@@ -225,10 +206,7 @@ def scan_api():
         return redirect(
             url_for(
                 "report_detail",
-                url=quote(
-                    url,
-                    safe="",
-                ),
+                url=quote(url, safe=""),
             )
         )
 
@@ -236,12 +214,10 @@ def scan_api():
     # JSON API response
     # --------------------------------------------------
 
-    return jsonify(
-        {
-            "message": "Scan Complete",
-            "data": convert_objectid(result),
-        }
-    )
+    return jsonify({
+        "message": "Scan Complete",
+        "data": convert_objectid(result),
+    })
 
 
 # --------------------------------------------------
@@ -254,41 +230,26 @@ def get_reports():
 
     try:
         limit = int(
-            request.args.get(
-                "limit",
-                50,
-            )
+            request.args.get("limit", 50)
         )
     except (TypeError, ValueError):
         limit = 50
 
     # Prevent unreasonable limits.
-    limit = max(
-        1,
-        min(limit, 100),
-    )
+    limit = max(1, min(limit, 100))
 
     try:
         docs = list(
             reports.find()
-            .sort(
-                "scanned_on",
-                -1,
-            )
+            .sort("scanned_on", -1)
             .limit(limit)
         )
+    except Exception:
+        return jsonify({
+            "error": "Unable to fetch reports",
+        }), 500
 
-    except Exception as exc:
-        return jsonify(
-            {
-                "error": "Unable to fetch reports",
-                "message": str(exc),
-            }
-        ), 500
-
-    return jsonify(
-        convert_objectid(docs)
-    )
+    return jsonify(convert_objectid(docs))
 
 
 # --------------------------------------------------
@@ -303,28 +264,17 @@ def history_page(url):
 
     try:
         docs = list(
-            reports.find(
-                {
-                    "website": decoded_url,
-                }
-            )
-            .sort(
-                "scanned_on",
-                -1,
-            )
+            reports.find({
+                "website": decoded_url,
+            })
+            .sort("scanned_on", -1)
         )
+    except Exception:
+        return jsonify({
+            "error": "Unable to fetch history",
+        }), 500
 
-    except Exception as exc:
-        return jsonify(
-            {
-                "error": "Unable to fetch history",
-                "message": str(exc),
-            }
-        ), 500
-
-    return jsonify(
-        convert_objectid(docs)
-    )
+    return jsonify(convert_objectid(docs))
 
 
 # --------------------------------------------------
@@ -359,12 +309,8 @@ def report_detail():
                 )
             ],
         )
-
-    except Exception as exc:
-        return (
-            f"Unable to load report: {exc}",
-            500,
-        )
+    except Exception:
+        return "Unable to load report", 500
 
     if not doc:
         return render_template(
